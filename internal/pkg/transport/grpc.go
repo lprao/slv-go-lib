@@ -40,7 +40,7 @@ func NewGrpcClient(ep string, insecure bool, loc string) *Grpc {
 }
 
 // Connect to the Grpc endpoint
-func (g *Grpc) connect(ep string, insecure bool, loc string) (*grpc.ClientConn, error) {
+func (g *Grpc) connect(ep string, insecure bool, loc, token string) (*grpc.ClientConn, error) {
 	if g.conn != nil {
 		return g.conn, nil
 	}
@@ -51,7 +51,9 @@ func (g *Grpc) connect(ep string, insecure bool, loc string) (*grpc.ClientConn, 
 			return nil, fmt.Errorf(ErrInvalidCaCert, err.Error())
 		}
 
-		g.conn, err = grpc.Dial(ep, grpc.WithTransportCredentials(creds))
+		g.conn, err = grpc.Dial(ep, grpc.WithTransportCredentials(creds), grpc.WithPerRPCCredentials(accessTokenAuth{
+			token: token,
+		}))
 		if err != nil {
 			return nil, fmt.Errorf(ErrGrpcDialFailed, ep, err.Error())
 		}
@@ -68,18 +70,18 @@ func (g *Grpc) connect(ep string, insecure bool, loc string) (*grpc.ClientConn, 
 }
 
 // Get the Grpc client object
-func (g *Grpc) getSlvSvcClient(ep string, insecure bool, loc string) (slvpb.LvSvcClient, error) {
-	c, err := g.connect(ep, insecure, loc)
+func (g *Grpc) getSlvSvcClient(ep string, insecure bool, loc, token string) (slvpb.SlvSvcClient, error) {
+	c, err := g.connect(ep, insecure, loc, token)
 	if err != nil {
 		return nil, fmt.Errorf(ErrGrpcDialFailed, ep, err.Error())
 	}
 
-	return slvpb.NewLvSvcClient(c), nil
+	return slvpb.NewSlvSvcClient(c), nil
 }
 
 // Helper routine to send the grpc request and return the response from slv-svc
-func (g *Grpc) DoGrpc(req slvpb.ExecOpReq) (slvpb.ExecOpResp, error) {
-	c, err := g.getSlvSvcClient(g.slvSvcEndpoint, g.insecure, g.caCertLoc)
+func (g *Grpc) DoGrpc(req slvpb.ExecOpReq, token string) (slvpb.ExecOpResp, error) {
+	c, err := g.getSlvSvcClient(g.slvSvcEndpoint, g.insecure, g.caCertLoc, token)
 	if err != nil {
 		return slvpb.ExecOpResp{}, err
 	}
@@ -92,6 +94,20 @@ func (g *Grpc) DoGrpc(req slvpb.ExecOpReq) (slvpb.ExecOpResp, error) {
 	}
 
 	return *resp, nil
+}
+
+type accessTokenAuth struct {
+	token string
+}
+
+func (t accessTokenAuth) GetRequestMetadata(ctx context.Context, in ...string) (map[string]string, error) {
+	return map[string]string{
+		"authorization": "Bearer " + t.token,
+	}, nil
+}
+
+func (accessTokenAuth) RequireTransportSecurity() bool {
+	return true
 }
 
 var (

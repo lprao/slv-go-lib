@@ -30,12 +30,11 @@ const (
 // Send the user requested operation to slv-svc
 func (s *slvClient) execOp(slvVar *slvpb.SlvVar, op slvpb.Operation, accessToken string) (*slvpb.SlvVar, error) {
 	req := slvpb.ExecOpReq{
-		Operation:   op,
-		Var:         slvVar,
-		AccessToken: accessToken,
+		Operation: op,
+		Var:       slvVar,
 	}
 
-	resp, err := s.grpc.DoGrpc(req)
+	resp, err := s.grpc.DoGrpc(req, accessToken)
 	if err != nil {
 		return &slvpb.SlvVar{}, nil
 	}

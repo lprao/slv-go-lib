@@ -22,6 +22,9 @@ type SlvInt struct {
 	// Permissions of the variable(can be set only once when the variable is created)
 	Permissions slvpb.VarPermissions
 
+	// Access token to perform operations on the variable
+	AccessToken string
+
 	// SlvVar local reference
 	slvVar *slvpb.SlvVar
 }
@@ -33,6 +36,9 @@ type SlvIntOps interface {
 
 	// Get the SlvInt object by name of the varible in the ledger
 	GetSlvIntByName(string) (*SlvInt, error)
+
+	// Set the access token for the operation.
+	WithAccessToken(string) *SlvInt
 
 	// Get the value of the variable from the ledger
 	Get() (int, error)
@@ -130,6 +136,12 @@ func (i *SlvInt) createSlvVarObj() error {
 	return nil
 }
 
+// Set the access token for the operation.
+func (i *SlvInt) WithAccessToken(token string) *SlvInt {
+	i.AccessToken = token
+	return i
+}
+
 // Get the value of the variable from the ledger
 func (i *SlvInt) Get() (int, error) {
 	return i.execOp(0, slvpb.Operation_SET)
@@ -158,7 +170,7 @@ func (i *SlvInt) Mul(val int) (int, error) {
 	return i.execOp(val, slvpb.Operation_MUL)
 }
 
-// Adds the integer parameter to the value in the ledger and stores
+// Divides the value in the ledger by the integer parameter and stores
 // the out come back into the ledger
 func (i *SlvInt) Div(val int) (int, error) {
 	if val == 0 {
@@ -176,7 +188,7 @@ func (i *SlvInt) execOp(val int, op slvpb.Operation) (int, error) {
 		return 0, err
 	}
 
-	outVar, err := client.execOp(i.slvVar, op, "")
+	outVar, err := client.execOp(i.slvVar, op, i.AccessToken)
 	if err != nil {
 		return 0, err
 	}
